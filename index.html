@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebXR A-Frame GLB 인터랙션 예제</title>
+
+  <!-- A-Frame 기본 라이브러리 -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    /*
+      [custom-interaction 컴포넌트]
+      - 모델을 클릭하면 색이 바뀌도록 만드는 기능입니다.
+      - PC에서는 마우스 클릭
+      - VR에서는 컨트롤러 레이(ray) 클릭
+    */
+    AFRAME.registerComponent('custom-interaction', {
+      init: function () {
+        const el = this.el;
+
+        // 클릭할 때마다 바뀔 색상 목록
+        const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#6C5CE7', '#00C853'];
+        let colorIndex = 0;
+
+        // glb 모델이 로드된 뒤 내부 mesh를 찾기 위한 처리
+        el.addEventListener('model-loaded', () => {
+          console.log('모델이 로드되었습니다.');
+        });
+
+        // 클릭 이벤트
+        el.addEventListener('click', () => {
+          const mesh = el.getObject3D('mesh');
+          if (!mesh) return;
+
+          colorIndex = (colorIndex + 1) % colors.length;
+          const nextColor = new THREE.Color(colors[colorIndex]);
+
+          // glb 내부의 모든 mesh를 순회하면서 색상 변경
+          mesh.traverse((node) => {
+            if (node.isMesh && node.material) {
+              // 원래 재질을 유지하면서 색만 바꾸기 위해 clone 사용
+              node.material = node.material.clone();
+              node.material.color = nextColor;
+            }
+          });
+        });
+      }
+    });
+  </script>
+
+  <a-scene
+    xr-mode-ui="enabled: true"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+    background="color: #ECECEC"
+  >
+    <!--
+      assets:
+      - 미리 파일을 등록해두면 나중에 불러오기가 편합니다.
+      - model.glb 파일은 html 파일과 같은 폴더에 있어야 합니다.
+    -->
+    <a-assets>
+      <a-asset-item id="myModel" src="model.glb"></a-asset-item>
+    </a-assets>
+
+    <!-- 하늘 -->
+    <a-sky color="#BFE7FF"></a-sky>
+
+    <!-- 바닥 -->
+    <a-plane
+      position="0 0 0"
+      rotation="-90 0 0"
+      width="30"
+      height="30"
+      color="#8BC34A"
+      shadow="receive: true">
+    </a-plane>
+
+    <!-- 조명 1: 전체를 밝게 비추는 조명 -->
+    <a-entity light="type: ambient; intensity: 0.8; color: #ffffff"></a-entity>
+
+    <!-- 조명 2: 방향성 조명 -->
+    <a-entity
+      light="type: directional; intensity: 1; castShadow: true; color: #ffffff"
+      position="3 6 2">
+    </a-entity>
+
+    <!--
+      클릭 가능한 glb 모델
+      class="clickable" 를 넣어야 레이캐스터가 이 대상을 인식합니다.
+    -->
+    <a-entity
+      id="interactiveModel"
+      class="clickable"
+      gltf-model="#myModel"
+      position="0 0 -3"
+      scale="1 1 1"
+      rotation="0 0 0"
+      shadow="cast: true; receive: true"
+      custom-interaction>
+    </a-entity>
+
+    <!--
+      카메라 리그:
+      - PC에서는 WASD 키로 이동 가능
+      - VR에서는 사용자의 HMD 위치와 컨트롤러 사용 가능
+    -->
+    <a-entity id="rig" position="0 0 3">
+      <!-- 카메라 -->
+      <a-entity
+        id="camera"
+        camera
+        position="0 1.6 0"
+        look-controls
+        wasd-controls="acceleration: 20">
+
+        <!--
+          PC용 커서
+          - 화면 중앙에서 클릭
+          - 마우스로 클릭 가능
+        -->
+        <a-cursor
+          fuse="false"
+          raycaster="objects: .clickable">
+        </a-cursor>
+      </a-entity>
+
+      <!--
+        왼손 VR 컨트롤러
+        - laser-controls: VR 컨트롤러 레이 사용
+        - raycaster: clickable 클래스를 가진 오브젝트만 클릭 가능
+      -->
+      <a-entity
+        laser-controls="hand: left"
+        raycaster="objects: .clickable; lineColor: red; lineOpacity: 0.8">
+      </a-entity>
+
+      <!-- 오른손 VR 컨트롤러 -->
+      <a-entity
+        laser-controls="hand: right"
+        raycaster="objects: .clickable; lineColor: blue; lineOpacity: 0.8">
+      </a-entity>
+    </a-entity>
+  </a-scene>
+</body>
+</html>
